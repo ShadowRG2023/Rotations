@@ -16,7 +16,6 @@ local Item          = HL.Item
 
 local settings = {
   Interrupt = true,
-  Stun = true,
   Nova = true,
   Veng = false,
 }
@@ -54,7 +53,6 @@ addonTable.spells = {
   { spell = "SPELL Bulk Extraction", name = "Bulk Extraction" },
 -- INTERRUPTS
   { spell = "SPELL Disrupt", name = "Disrupt" },
-  { spell = "SPELL Fel Eruption", name = "Fel Eruption" },
   { spell = "SPELL Chaos Nova", name = "Chaos Nova" },
 -- DO NOT REMOVE
 --{ spell = "SPELL Sigil of Flame", name = "Sigil of Flame" },
@@ -150,13 +148,6 @@ local function Interrupt()
 			if Cast(S.Disrupt) then
 				addonTable.cast("Disrupt")
 				return "disrupt 1"
-			end
-		end
-
-    if S.FelEruption:IsCastable() and Target:IsSpellInRange(S.FelEruption) and addonTable.config.Stun and S.Disrupt:CooldownRemains() > 0.5 then
-			if Cast(S.FelEruption) then
-				addonTable.cast("Fel Eruption")
-				return "feleruption 1"
 			end
 		end
 
