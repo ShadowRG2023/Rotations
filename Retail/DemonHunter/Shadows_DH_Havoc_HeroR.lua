@@ -26,6 +26,7 @@ addonTable:SetConfig(settings)
 addonTable.newMacro("OptiAction1", "INV_MISC_QUESTIONMARK", "/cast [@player] Sigil of Flame")
 addonTable.newMacro("OptiAction2", "INV_MISC_QUESTIONMARK", "/cast Vengeful Retreat\n/cast Fel Rush")
 addonTable.newMacro("OptiAction3", "INV_MISC_QUESTIONMARK", "/cast [@cursor] Metamorphosis")
+addonTable.newMacro("OptiAction4", "INV_MISC_QUESTIONMARK", "/cast [@player] Elysian Decree")
 
 -- DO NOT REMOVE 
 -- BEGIN SPELLS/MACRO LIST 
@@ -33,6 +34,7 @@ addonTable.spells = {
   { spell = "MACRO OptiAction1", name = "SigilofFlame" },
   { spell = "MACRO OptiAction2", name = "VengefulRetreat" },
   { spell = "MACRO OptiAction3", name = "Metamorphosis" },
+  { spell = "MACRO OptiAction4", name = "ElysianDecree" },
   { spell = "SPELL Throw Glaive", name = "Throw Glaive" },
   { spell = "SPELL The Hunt", name = "The Hunt" },
   { spell = "SPELL Immolation Aura", name = "Immolation Aura" },
@@ -42,7 +44,6 @@ addonTable.spells = {
   { spell = "SPELL Fel Barrage", name = "Fel Barrage" },
   { spell = "SPELL Eye Beam", name = "Eye Beam" },
   { spell = "SPELL Essence Break", name = "Essence Break" },
-  { spell = "SPELL Elysian Decree", name = "Elysian Decree" },
   { spell = "SPELL Demon's Bite", name = "Demon's Bite" },
   { spell = "SPELL Death Sweep", name = "Death Sweep" },
   { spell = "SPELL Chaos Strike", name = "Chaos Strike" },
@@ -59,6 +60,7 @@ addonTable.spells = {
   --{ spell = "SPELL Vengeful Retreat", name = "Vengeful Retreat" }
   --{ spell = "SPELL Sigil of Flame", name = "Sigil of Flame" },
   --{ spell = "SPELL Metamorphosis", name = "Metamorphosis" },
+  --{ spell = "SPELL Elysian Decree", name = "Elysian Decree" },
   -- END SPELLS LIST
 }
 -- DO NOT REMOVE ^
@@ -121,6 +123,7 @@ local GCDMax = GCD + 0.25
 local CombatTime = 0
 local BossFightRemains = 11111
 local FightRemains = 11111
+local VarFireInsideUsed = false
 
 HL:RegisterForEvent(function()
   CombatTime = 0
@@ -145,7 +148,7 @@ local function IsInMeleeRange(range)
   elseif S.VengefulRetreat:TimeSinceLastCast() < 2.0 then
     return false
   end
-  return range and Target:IsInMeleeRange(range) or Target:IsInMeleeRange(5)
+  return range and Target:IsInMeleeRange(range) or Target:IsInMeleeRange(8)
 end
 
 local function Interrupt()
@@ -157,12 +160,14 @@ local function Interrupt()
 			end
 		end
 
-    if S.FelEruption:IsCastable() and Target:IsSpellInRange(S.FelEruption) and addonTable.config.Stun and S.Disrupt:CooldownRemains() > 0.5 then
-			if Cast(S.FelEruption) then
-				addonTable.cast("Fel Eruption")
-				return "feleruption 1"
-			end
-		end
+    if S.FelEruption:IsAvailable() then
+      if S.FelEruption:IsCastable() and Target:IsSpellInRange(S.FelEruption) and addonTable.config.Stun and S.Disrupt:CooldownRemains() > 0.5 then
+			  if Cast(S.FelEruption) then
+				  addonTable.cast("Fel Eruption")
+				  return "feleruption 1"
+			  end
+		  end
+    end
 
     if S.ChaosNova:IsCastable() and Target:IsSpellInRange(S.ChaosNova) and addonTable.config.Nova and S.Disrupt:CooldownRemains() > 0.5 then
 			if Cast(S.ChaosNova) then
@@ -190,9 +195,16 @@ local function UseFelRush()
   return (Settings.Havoc.ConserveFelRush and S.FelRush:Charges() == 2) or not Settings.Havoc.ConserveFelRush
 end
 
-local function UseImmoAura()
-  return S.FelRush:Charges() > 0
-end
+--local function UseImmoAura()
+--  return S.FelRush:Charges() > 0
+--end
+
+--[[local function CastImmoAura()
+  if S.ImmolationAura:IsCastable() then
+    if Cast(S.ImmolationAura, Settings.Havoc.GCDasOffGCD.ImmolationAura, nil, not IsInMeleeRange(8)) then addonTable.cast("Immolation Aura") return "immolation_aura precombat 4"; end
+  end
+  local ShouldReturn = APL(); if ShouldReturn then return ShouldReturn; end 
+end]]--
 
 local function ETIFBurningWound(TargetUnit)
   -- target_if=min:debuff.burning_wound.remains
@@ -217,13 +229,13 @@ local function Precombat()
   end
   -- immolation_aura
   if S.ImmolationAura:IsCastable() then
-    if Cast(S.ImmolationAura, Settings.Havoc.GCDasOffGCD.ImmolationAura, nil, not IsInMeleeRange(8)) then addonTable.cast("Immolation Aura") return "immolation_aura precombat 4"; end
+    if Cast(S.ImmolationAura, Settings.Havoc.GCDasOffGCD.ImmolationAura, nil, not IsInMeleeRange(8)) then addonTable.cast("Immolation Aura") return "immolation_aura precombat 2"; end
   end
 end
 
 local function Opener()
   -- immolation_aura
-  if S.ImmolationAura:IsCastable() and UseImmoAura() then
+  if S.ImmolationAura:IsCastable() then
     if Cast(S.ImmolationAura, Settings.Havoc.GCDasOffGCD.ImmolationAura, nil, not IsInMeleeRange(8)) then addonTable.cast("Immolation Aura") return "immolation_aura opener 4"; end
   end
   if CDsON() then
@@ -241,9 +253,9 @@ local function Opener()
     if Cast(S.VengefulRetreat, Settings.Havoc.OffGCDasOffGCD.VengefulRetreat) then addonTable.cast("Vengeful Retreat") return "vengeful_retreat opener 12"; end
   end
   -- fel rush
-  --if S.FelRush:IsCastable() and S.FelRush:TimeSinceLastCast() >= 5 then
-  --  if Cast(S.FelRush, nil, Settings.CommonsDS.DisplayStyle.FelRush, not Target:IsInRange(15)) then addonTable.cast("Fel Rush") return "fel_rush opener 14"; end
-  --end
+  if S.FelRush:IsCastable() and S.FelRush:TimeSinceLastCast() >= 7 then
+    if Cast(S.FelRush, nil, Settings.CommonsDS.DisplayStyle.FelRush, not Target:IsInRange(15)) then addonTable.cast("Fel Rush") return "fel_rush opener 14"; end
+  end
   -- essence_break
   if S.EssenceBreak:IsCastable() and (not Player:IsChanneling(S.EyeBeam)) then
     if Cast(S.EssenceBreak, Settings.Havoc.GCDasOffGCD.EssenceBreak, nil, not IsInMeleeRange(10)) then addonTable.cast("Essence Break") return "essence_break opener 16"; end
@@ -252,7 +264,7 @@ local function Opener()
     if Cast(S.DeathSweep, nil, nil, not IsInMeleeRange(8)) then addonTable.cast("Death Sweep") return "death_sweep opener 18"; end
   end
   -- metamorphosis,if=prev_gcd.1.death_sweep|(!talent.chaotic_transformation)&(!talent.initiative|cooldown.vengeful_retreat.remains>2)|!talent.demonic
-  if CDsON() and S.Metamorphosis:IsCastable() and IsInMeleeRange and (Player:PrevGCDP(1, S.DeathSweep) or (not S.ChaoticTransformation:IsAvailable()) and (not S.Initiative:IsAvailable() or S.VengefulRetreat:CooldownRemains() > 2) or not S.Demonic:IsAvailable()) then
+  if CDsON() and S.Metamorphosis:IsCastable() and (Player:PrevGCDP(1, S.DeathSweep) or (not S.ChaoticTransformation:IsAvailable()) and (not S.Initiative:IsAvailable() or S.VengefulRetreat:CooldownRemains() > 2) or not S.Demonic:IsAvailable()) then
     if Cast(S.Metamorphosis, nil, Settings.CommonsDS.DisplayStyle.Metamorphosis, not Target:IsInRange(40)) then addonTable.cast("Metamorphosis") return "metamorphosis opener 20"; end
   end
 end
@@ -272,7 +284,7 @@ local function Meta()
     if Cast(S.FelRush, nil, Settings.CommonsDS.DisplayStyle.FelRush) then addonTable.cast("Fel Rush") return "fel_rush meta 6"; end
   end
   -- Manually added: Felblade if out of range
-  if not Target:IsInMeleeRange(5) and S.Felblade:IsCastable() then
+  if S.Felblade:IsCastable() then
     if Cast(S.Felblade, nil, nil, not Target:IsSpellInRange(S.Felblade)) then addonTable.cast("Felblade") return "felblade meta 8"; end
   end
   -- annihilation,if=buff.inner_demon.up&(cooldown.eye_beam.remains<gcd.max*3&cooldown.blade_dance.remains|cooldown.metamorphosis.remains<gcd.max*3)
@@ -284,7 +296,7 @@ local function Meta()
     if Cast(S.EssenceBreak, Settings.Havoc.GCDasOffGCD.EssenceBreak, nil, not IsInMeleeRange(10)) then addonTable.cast("Essence Break") return "essence_break meta 12"; end
   end
   -- immolation_aura,if=debuff.essence_break.down&cooldown.blade_dance.remains>gcd.max+0.5&buff.unbound_chaos.down&talent.inertia&buff.inertia.down&full_recharge_time+3<cooldown.eye_beam.remains&buff.metamorphosis.remains>5
-  if S.ImmolationAura:IsCastable() and UseImmoAura() and (Target:DebuffDown(S.EssenceBreakDebuff) and S.BladeDance:CooldownRemains() > GCDMax + 0.5 and Player:BuffDown(S.UnboundChaosBuff) and S.Inertia:IsAvailable() and Player:BuffDown(S.InertiaBuff) and S.ImmolationAura:FullRechargeTime() + 3 < S.EyeBeam:CooldownRemains() and Player:BuffRemains(S.MetamorphosisBuff) > 5) then
+  if S.ImmolationAura:IsCastable() and (Target:DebuffDown(S.EssenceBreakDebuff) and S.BladeDance:CooldownRemains() > GCDMax + 0.5 and Player:BuffDown(S.UnboundChaosBuff) and S.Inertia:IsAvailable() and Player:BuffDown(S.InertiaBuff) and S.ImmolationAura:FullRechargeTime() + 3 < S.EyeBeam:CooldownRemains() and Player:BuffRemains(S.MetamorphosisBuff) > 5) then
     if Cast(S.ImmolationAura, Settings.Havoc.GCDasOffGCD.ImmolationAura, nil, not IsInMeleeRange(8)) then addonTable.cast("Immolation Aura") return "immolation_aura meta 14"; end
   end
   -- death_sweep
@@ -292,7 +304,7 @@ local function Meta()
     if Cast(S.DeathSweep, nil, nil, not IsInMeleeRange(8)) then addonTable.cast("Death Sweep") return "death_sweep meta 16"; end
   end
   -- testing blade dance in meta
-  if S.BladeDance:IsReady() and (Player:Fury() > 35 and (S.Metamorphosis:CooldownRemains() > 10)) then
+  if S.BladeDance:IsReady() and (Player:Fury() > 35 and (S.Metamorphosis:CooldownRemains() > 10)) and S.VengefulRetreat:TimeSinceLastCast() > 2.0 then
     if Cast(S.BladeDance, nil, nil, not IsInMeleeRange(8)) then addonTable.cast("Blade Dance") return "blade_dance meta 18"; end
   end
   -- eye_beam,if=debuff.essence_break.down&buff.inner_demon.down
@@ -324,7 +336,7 @@ local function Meta()
     if Cast(S.SigilofFlame, nil, Settings.CommonsDS.DisplayStyle.Sigils, not Target:IsInRange(30)) then addonTable.cast("Sigil of Flame") return "sigil_of_flame meta 30"; end
   end
   -- immolation_aura,if=buff.out_of_range.down&recharge_time<(cooldown.eye_beam.remains<?buff.metamorphosis.remains)&(active_enemies>=desired_targets+raid_event.adds.count|raid_event.adds.in>full_recharge_time)
-  if S.ImmolationAura:IsCastable() and UseImmoAura() and (IsInMeleeRange(8) and S.ImmolationAura:Recharge() < (mathmax(S.EyeBeam:CooldownRemains(), Player:BuffRemains(S.MetamorphosisBuff)))) then
+  if S.ImmolationAura:IsCastable() and (IsInMeleeRange(8) and S.ImmolationAura:Recharge() < (mathmax(S.EyeBeam:CooldownRemains(), Player:BuffRemains(S.MetamorphosisBuff)))) then
     if Cast(S.ImmolationAura, Settings.Havoc.GCDasOffGCD.ImmolationAura, nil, not IsInMeleeRange(8)) then addonTable.cast("Immolation Aura") return "immolation_aura meta 32"; end
   end
   -- fel_rush,if=talent.momentum
@@ -332,7 +344,7 @@ local function Meta()
     if Cast(S.FelRush, nil, Settings.CommonsDS.DisplayStyle.FelRush) then addonTable.cast("Fel Rush") return "fel_rush meta 34"; end
   end
   -- fel_rush,if=buff.unbound_chaos.down&recharge_time<cooldown.eye_beam.remains&debuff.essence_break.down&(cooldown.eye_beam.remains>8|charges_fractional>1.01)&buff.out_of_range.down
-  if S.FelRush:IsCastable() and UseFelRush() and (Player:BuffDown(S.UnboundChaosBuff) and S.FelRush:Recharge() < S.EyeBeam:CooldownRemains() and Target:DebuffDown(S.EssenceBreakDebuff) and (S.EyeBeam:CooldownRemains() > 8 or S.FelRush:ChargesFractional() > 1.01) and IsInMeleeRange(15)) then
+  if S.FelRush:IsCastable() and UseFelRush() and (Player:BuffDown(S.UnboundChaosBuff) and S.FelRush:Recharge() < S.EyeBeam:CooldownRemains() and Target:DebuffDown(S.EssenceBreakDebuff) and (S.EyeBeam:CooldownRemains() > 8 or S.FelRush:ChargesFractional() > 1.01)) then
     if Cast(S.FelRush, nil, Settings.CommonsDS.DisplayStyle.FelRush) then addonTable.cast("Fel Rush") return "fel_rush meta 36"; end
   end
   -- demons_bite
@@ -343,7 +355,7 @@ end
 
 local function Cooldown()
   -- metamorphosis,if=(!talent.initiative|cooldown.vengeful_retreat.remains)&((!talent.demonic|prev_gcd.1.death_sweep|prev_gcd.2.death_sweep|prev_gcd.3.death_sweep)&cooldown.eye_beam.remains&(!talent.essence_break|debuff.essence_break.up)&buff.fel_barrage.down&(raid_event.adds.in>40|(raid_event.adds.remains>8|!talent.fel_barrage)&active_enemies>2)|!talent.chaotic_transformation|fight_remains<30)
-  if CDsON() and S.Metamorphosis:IsCastable() and IsInMeleeRange and ((not S.Initiative:IsAvailable() or S.VengefulRetreat:CooldownDown()) and ((not S.Demonic:IsAvailable() or Player:PrevGCDP(1, S.DeathSweep) or Player:PrevGCDP(2, S.DeathSweep) or Player:PrevGCDP(3, S.DeathSweep)) and S.EyeBeam:CooldownDown() and (not S.EssenceBreak:IsAvailable() or Target:DebuffUp(S.EssenceBreakDebuff)) and Player:BuffDown(S.FelBarrage) or not S.ChaoticTransformation:IsAvailable() or BossFightRemains < 30)) then
+  if CDsON() and S.Metamorphosis:IsCastable() and ((not S.Initiative:IsAvailable() or S.VengefulRetreat:CooldownDown()) and ((not S.Demonic:IsAvailable() or Player:PrevGCDP(1, S.DeathSweep) or Player:PrevGCDP(2, S.DeathSweep) or Player:PrevGCDP(3, S.DeathSweep)) and S.EyeBeam:CooldownDown() and (not S.EssenceBreak:IsAvailable() or Target:DebuffUp(S.EssenceBreakDebuff)) and Player:BuffDown(S.FelBarrage) or not S.ChaoticTransformation:IsAvailable() or BossFightRemains < 30)) then
     if Cast(S.Metamorphosis, nil, Settings.CommonsDS.DisplayStyle.Metamorphosis) then addonTable.cast("Metamorphosis") return "metamorphosis cooldown 2"; end
   end
   -- potion,if=fight_remains<35|buff.metamorphosis.up
@@ -378,10 +390,10 @@ local function Cooldown()
     if S.TheHunt:IsCastable() and (Target:DebuffDown(S.EssenceBreakDebuff) and CombatTime > 5) then
       if Cast(S.TheHunt, nil, Settings.CommonsDS.DisplayStyle.Signature, not Target:IsSpellInRange(S.TheHunt)) then addonTable.cast("The Hunt") return "the_hunt cooldown 12"; end
     end
+  end
     -- elysian_decree,if=debuff.essence_break.down
-    if S.ElysianDecree:IsCastable() and (Target:DebuffDown(S.EssenceBreakDebuff)) then
-      if Cast(S.ElysianDecree, nil, Settings.CommonsDS.DisplayStyle.Signature, not Target:IsInRange(30)) then addonTable.cast("Elysian Decree") return "elysian_decree cooldown 14"; end
-    end
+  if S.ElysianDecree:IsCastable() and Target:IsInMeleeRange(8) and (Target:DebuffDown(S.EssenceBreakDebuff)) then
+    if Cast(S.ElysianDecree, nil, Settings.CommonsDS.DisplayStyle.Signature, not Target:IsInRange(30)) then addonTable.cast("Elysian Decree") return "elysian_decree cooldown 14"; end
   end
 end
 
@@ -409,7 +421,7 @@ local function FelBarrageFunc()
     if Cast(S.DeathSweep, nil, nil, not IsInMeleeRange(8)) then addonTable.cast("Death Sweep") return "death_sweep fel_barrage 8"; end
   end
   -- immolation_aura,if=buff.unbound_chaos.down&(active_enemies>2|buff.fel_barrage.up)
-  if S.ImmolationAura:IsCastable() and UseImmoAura() and (Player:BuffDown(S.UnboundChaosBuff) and (Enemies8yCount > 2 or Player:BuffUp(S.FelBarrage))) then
+  if S.ImmolationAura:IsCastable() and (Player:BuffDown(S.UnboundChaosBuff) and (Enemies8yCount > 2 or Player:BuffUp(S.FelBarrage))) then
     if Cast(S.ImmolationAura, Settings.Havoc.GCDasOffGCD.ImmolationAura, nil, not IsInMeleeRange(8)) then addonTable.cast("Immolation Aura") return "immolation_aura fel_barrage 10"; end
   end
   -- glaive_tempest,if=buff.fel_barrage.down&active_enemies>1
@@ -417,7 +429,7 @@ local function FelBarrageFunc()
     if Cast(S.GlaiveTempest, Settings.Havoc.GCDasOffGCD.GlaiveTempest) then addonTable.cast("Glaive Tempest") return "glaive_tempest fel_barrage 12"; end
   end
   -- blade_dance,if=buff.fel_barrage.down
-  if S.BladeDance:IsReady() and (Player:BuffDown(S.FelBarrage)) then
+  if S.BladeDance:IsReady() and (Player:BuffDown(S.FelBarrage)) and S.VengefulRetreat:TimeSinceLastCast() > 2.0 then
     if Cast(S.BladeDance, nil, nil, not IsInMeleeRange(8)) then addonTable.cast("Blade Dance") return "blade_dance fel_barrage 14"; end
   end
   -- fel_barrage,if=fury>100&(raid_event.adds.in>90|raid_event.adds.in<gcd.max|raid_event.adds.remains>4&active_enemies>2)
@@ -445,7 +457,7 @@ local function FelBarrageFunc()
     if Cast(S.GlaiveTempest, Settings.Havoc.GCDasOffGCD.GlaiveTempest) then addonTable.cast("Glaive Tempest") return "glaive_tempest fel_barrage 26"; end
   end
   -- blade_dance,if=fury-variable.gcd_drain-35>0&(buff.fel_barrage.remains<3|variable.generator_up|fury>80|variable.fury_gen>18)
-  if S.BladeDance:IsReady() and (Player:Fury() - VarGCDDrain - 35 > 0 and (Player:BuffRemains(S.FelBarrage) < 3 or VarGeneratorUp or Player:Fury() > 80 or VarFuryGen > 18)) then
+  if S.BladeDance:IsReady() and (Player:Fury() - VarGCDDrain - 35 > 0 and (Player:BuffRemains(S.FelBarrage) < 3 or VarGeneratorUp or Player:Fury() > 80 or VarFuryGen > 18)) and S.VengefulRetreat:TimeSinceLastCast() > 2.0 then
     if Cast(S.BladeDance, nil, nil, not IsInMeleeRange(8)) then addonTable.cast("Blade Dance") return "blade_dance fel_barrage 28"; end
   end
   -- arcane_torrent,if=fury.deficit>40&buff.fel_barrage.up
@@ -531,7 +543,7 @@ addonTable.resetPixels()
       if Cast(S.FelRush, nil, Settings.CommonsDS.DisplayStyle.FelRush) then addonTable.cast("Fel Rush") return "fel_rush main 4"; end
     end
     -- immo test
-    if S.ImmolationAura:IsCastable() and UseImmoAura() and Target:DebuffDown(S.EssenceBreakDebuff) then
+    if S.ImmolationAura:IsCastable() and Target:DebuffDown(S.EssenceBreakDebuff) then
       if Cast(S.ImmolationAura, Settings.Havoc.GCDasOffGCD.ImmolationAura, nil, not IsInMeleeRange(8)) then addonTable.cast("Immolation Aura") return "immolation_aura main 50"; end
     end
    
@@ -548,16 +560,12 @@ addonTable.resetPixels()
       if HR.CastAnnotated(S.Pool, false, "WAIT") then return "Wait for FelBarrageFunc()"; end
     end
     -- immolation_aura,if=active_enemies>2&talent.ragefire&buff.unbound_chaos.down&(!talent.fel_barrage|cooldown.fel_barrage.remains>recharge_time)&debuff.essence_break.down
-    if S.ImmolationAura:IsCastable() and UseImmoAura() and (Enemies8yCount > 2 and S.Ragefire:IsAvailable() and Player:BuffDown(S.UnboundChaosBuff) and (not S.FelBarrage:IsAvailable() or S.FelBarrage:CooldownRemains() > S.ImmolationAura:Recharge()) and Target:DebuffDown(S.EssenceBreakDebuff)) then
+    if S.ImmolationAura:IsCastable() and (Enemies8yCount > 2 and S.Ragefire:IsAvailable() and Player:BuffDown(S.UnboundChaosBuff) and (not S.FelBarrage:IsAvailable() or S.FelBarrage:CooldownRemains() > S.ImmolationAura:Recharge()) and Target:DebuffDown(S.EssenceBreakDebuff)) then
       if Cast(S.ImmolationAura, Settings.Havoc.GCDasOffGCD.ImmolationAura, nil, not IsInMeleeRange(8)) then addonTable.cast("Immolation Aura") return "immolation_aura main 6"; end
     end
     -- immolation_aura,if=active_enemies>2&talent.ragefire&raid_event.adds.up&raid_event.adds.remains<15&raid_event.adds.remains>5&debuff.essence_break.down
-    if S.ImmolationAura:IsCastable() and UseImmoAura() and (Enemies8yCount > 2 and S.Ragefire:IsAvailable() and Target:DebuffDown(S.EssenceBreakDebuff)) then
+    if S.ImmolationAura:IsCastable() and (Enemies8yCount > 2 and S.Ragefire:IsAvailable() and Target:DebuffDown(S.EssenceBreakDebuff)) then
       if Cast(S.ImmolationAura, Settings.Havoc.GCDasOffGCD.ImmolationAura, nil, not IsInMeleeRange(8)) then addonTable.cast("Immolation Aura") return "immolation_aura main 8"; end
-    end
-    -- fel_rush,if=buff.unbound_chaos.up&active_enemies>2&(!talent.inertia|cooldown.eye_beam.remains+2>buff.unbound_chaos.remains)
-    if S.FelRush:IsCastable() and UseFelRush() and (Player:BuffUp(S.UnboundChaosBuff) and Enemies8yCount > 2 and (not S.Inertia:IsAvailable() or S.EyeBeam:CooldownRemains() + 2 > Player:BuffRemains(S.UnboundChaosBuff))) then
-      if Cast(S.FelRush, nil, Settings.CommonsDS.DisplayStyle.FelRush) then addonTable.cast("Fel Rush") return "fel_rush main 10"; end
     end
     -- vengeful_retreat,use_off_gcd=1,if=talent.initiative&(cooldown.eye_beam.remains>15&gcd.remains<0.3|gcd.remains<0.1&cooldown.eye_beam.remains<=gcd.remains&(cooldown.metamorphosis.remains>10|cooldown.blade_dance.remains<gcd.max*2))&time>4
     -- Note: Skipping gcd.remains checks to avoid twitchy suggestions. Forcing into OffGCD icon instead.
@@ -567,6 +575,10 @@ addonTable.resetPixels()
     -- vengeful_retreat,if=prev_gcd.1.death_sweep
     if S.VengefulRetreat:IsCastable() and addonTable.config.Veng and S.Felblade:IsCastable() and (not Player:IsChanneling(S.EyeBeam)) then
       if Cast(S.VengefulRetreat, Settings.Havoc.OffGCDasOffGCD.VengefulRetreat) then addonTable.cast("Vengeful Retreat") return "vengeful_retreat main 12"; end
+    end
+    -- fel_rush,if=buff.unbound_chaos.up&active_enemies>2&(!talent.inertia|cooldown.eye_beam.remains+2>buff.unbound_chaos.remains)
+    if S.FelRush:IsCastable() and UseFelRush() and (Player:BuffUp(S.UnboundChaosBuff) and Enemies8yCount > 2 and (not S.Inertia:IsAvailable() or S.EyeBeam:CooldownRemains() + 2 > Player:BuffRemains(S.UnboundChaosBuff))) then
+      if Cast(S.FelRush, nil, Settings.CommonsDS.DisplayStyle.FelRush) then addonTable.cast("Fel Rush") return "fel_rush main 10"; end
     end
     -- run_action_list,name=fel_barrage,if=variable.fel_barrage|!talent.demon_blades&talent.fel_barrage&(buff.fel_barrage.up|cooldown.fel_barrage.up)&buff.metamorphosis.down
     if VarFelBarrage or not S.DemonBlades:IsAvailable() and S.FelBarrage:IsAvailable() and (Player:BuffUp(S.FelBarrage) or S.FelBarrage:CooldownUp()) and Player:BuffDown(S.MetamorphosisBuff) then
@@ -591,7 +603,7 @@ addonTable.resetPixels()
     -- immolation_aura,if=talent.inertia&buff.unbound_chaos.down&cooldown.eye_beam.remains<5&(active_enemies>=desired_targets+raid_event.adds.count|raid_event.adds.in>full_recharge_time)
     -- immolation_aura,if=talent.inertia&buff.inertia.down&buff.unbound_chaos.down&recharge_time+5<cooldown.eye_beam.remains&cooldown.blade_dance.remains&cooldown.blade_dance.remains<4&(active_enemies>=desired_targets+raid_event.adds.count|raid_event.adds.in>full_recharge_time)&charges_fractional>1.00
     -- immolation_aura,if=fight_remains<15&cooldown.blade_dance.remains
-    if S.ImmolationAura:IsCastable() and UseImmoAura() and ((Player:BuffDown(S.UnboundChaosBuff) and S.ImmolationAura:FullRechargeTime() < GCDMax * 2) or (Enemies8yCount > 1 and Player:BuffDown(S.UnboundChaosBuff)) or (S.Inertia:IsAvailable() and Player:BuffDown(S.UnboundChaosBuff) and S.EyeBeam:CooldownRemains() < 5) or (S.Inertia:IsAvailable() and Player:BuffDown(S.InertiaBuff) and Player:BuffDown(S.UnboundChaosBuff) and S.ImmolationAura:Recharge() + 5 < S.EyeBeam:CooldownRemains() and S.BladeDance:CooldownDown() and S.BladeDance:CooldownRemains() < 4 and S.ImmolationAura:ChargesFractional() > 1.00)) then
+    if S.ImmolationAura:IsCastable() and ((Player:BuffDown(S.UnboundChaosBuff) and S.ImmolationAura:FullRechargeTime() < GCDMax * 2) or (Enemies8yCount > 1 and Player:BuffDown(S.UnboundChaosBuff)) or (S.Inertia:IsAvailable() and Player:BuffDown(S.UnboundChaosBuff) and S.EyeBeam:CooldownRemains() < 5) or (S.Inertia:IsAvailable() and Player:BuffDown(S.InertiaBuff) and Player:BuffDown(S.UnboundChaosBuff) and S.ImmolationAura:Recharge() + 5 < S.EyeBeam:CooldownRemains() and S.BladeDance:CooldownDown() and S.BladeDance:CooldownRemains() < 4 and S.ImmolationAura:ChargesFractional() > 1.00)) then
       if Cast(S.ImmolationAura, Settings.Havoc.GCDasOffGCD.ImmolationAura, nil, not IsInMeleeRange(8)) then addonTable.cast("Immolation Aura") return "immolation_aura main 18"; end
     end
     -- eye_beam,if=!talent.essence_break&(!talent.chaotic_transformation|cooldown.metamorphosis.remains<5+3*talent.shattered_destiny|cooldown.metamorphosis.remains>15)&(active_enemies>desired_targets*2|raid_event.adds.in>30-talent.cycle_of_hatred.rank*13)
@@ -603,7 +615,7 @@ addonTable.resetPixels()
       if Cast(S.EyeBeam, Settings.Havoc.GCDasOffGCD.EyeBeam, nil, not IsInMeleeRange(20)) then addonTable.cast("Eye Beam") return "eye_beam main 22"; end
     end
     -- blade_dance,if=cooldown.eye_beam.remains>gcd.max|cooldown.eye_beam.up
-    if S.BladeDance:IsReady() and (S.EyeBeam:CooldownRemains() > GCDMax or S.EyeBeam:CooldownUp()) then
+    if S.BladeDance:IsReady() and (S.EyeBeam:CooldownRemains() > GCDMax or S.EyeBeam:CooldownUp()) and S.VengefulRetreat:TimeSinceLastCast() > 2.0 then
       if Cast(S.BladeDance, nil, nil, not IsInMeleeRange(8)) then addonTable.cast("Blade Dance") return "blade_dance main 24"; end
     end
     -- glaive_tempest,if=active_enemies>=desired_targets+raid_event.adds.count|raid_event.adds.in>10
@@ -635,7 +647,7 @@ addonTable.resetPixels()
       if Cast(S.ChaosStrike, nil, nil, not Target:IsSpellInRange(S.ChaosStrike)) then addonTable.cast("Chaos Strike") return "chaos_strike main 38"; end
     end
     -- immolation_aura,if=!talent.inertia&(raid_event.adds.in>full_recharge_time|active_enemies>desired_targets&active_enemies>2)
-    if S.ImmolationAura:IsCastable() and UseImmoAura() and (not S.Inertia:IsAvailable()) then
+    if S.ImmolationAura:IsCastable() and (not S.Inertia:IsAvailable()) then
       if Cast(S.ImmolationAura, Settings.Havoc.GCDasOffGCD.ImmolationAura, nil, not IsInMeleeRange(8)) then addonTable.cast("Immolation Aura") return "immolation_aura main 40"; end
     end
     -- sigil_of_flame,if=buff.out_of_range.down&debuff.essence_break.down&(!talent.fel_barrage|cooldown.fel_barrage.remains>25|(active_enemies=1&!raid_event.adds.exists))
@@ -659,8 +671,53 @@ addonTable.resetPixels()
   end
 end
 
+--[[
+SHADOW'S CODE FOR INTERRUPTS AND KEYBIND TOGGLES
+FOR AUTO INTERRUPTS ENSURE TO PUT THIS CODE DIRECTLY UNDER: if Everyone.TargetIsValid() or Player:AffectingCombat() then
+  if addonTable.config.Interrupt then
+	  local ShouldReturn = Interrupt()
+		if ShouldReturn then
+			return ShouldReturn
+		end
+	end   
+]]--
+
+-- Define a function to call HR.CmdHandler arguments
+local function ToggleCDs()
+  HR.CmdHandler("cds")
+end
+local function ToggleAoE()
+  HR.CmdHandler("aoe")
+end
+local function ToggleHeroRotation()
+  HR.CmdHandler("toggle")
+end
+
 local function Init()
   S.BurningWoundDebuff:RegisterAuraTracking()
+
+  local cdsButton = CreateFrame("Button", "ToggleCDsButton", UIParent, "SecureActionButtonTemplate")
+  cdsButton:SetScript("OnClick", ToggleCDs)
+  
+  local aoeButton = CreateFrame("Button", "ToggleAoEButton", UIParent, "SecureActionButtonTemplate")
+  aoeButton:SetScript("OnClick", ToggleAoE)
+
+  local toggleButton = CreateFrame("Button", "ToggleHeroRotationButton", UIParent, "SecureActionButtonTemplate")
+  toggleButton:SetScript("OnClick", ToggleHeroRotation)
+
+  -- Clear keybinds for the selected keys below
+  SetBinding("T")
+  SetBinding("Y")
+  SetBinding("U")
+
+
+  -- Register the functions with keybindings
+  -- You can change "T", "Y", and "U" to your desired key combinations
+  SetBindingClick("T", "ToggleCDsButton")
+  SetBindingClick("Y", "ToggleAoEButton")
+  SetBindingClick("U", "ToggleHeroRotationButton")
+
+  SaveBindings(GetCurrentBindingSet())
 
   HR.Print("Havoc Demon Hunter rotation has been updated for patch 10.2.7.")
 end

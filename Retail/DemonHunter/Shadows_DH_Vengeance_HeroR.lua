@@ -151,6 +151,15 @@ local function Interrupt()
 			end
 		end
 
+    if S.FelEruption:IsAvailable() then
+      if S.FelEruption:IsCastable() and Target:IsSpellInRange(S.FelEruption) and addonTable.config.Stun and S.Disrupt:CooldownRemains() > 0.5 then
+			  if Cast(S.FelEruption) then
+				  addonTable.cast("Fel Eruption")
+				  return "feleruption 1"
+			  end
+		  end
+    end
+
     if S.ChaosNova:IsCastable() and Target:IsSpellInRange(S.ChaosNova) and addonTable.config.Nova and S.Disrupt:CooldownRemains() > 0.5 then
 			if Cast(S.ChaosNova) then
 				addonTable.cast("Chaos Nova")
@@ -159,7 +168,6 @@ local function Interrupt()
 		end
 	end
 end
-
 -- CastTargetIf/CastCycle functions
 local function EvaluateTargetIfFilterFBRemains(TargetUnit)
   -- target_if=max:dot.fiery_brand.remains
@@ -599,9 +607,54 @@ addonTable.resetPixels()
   end
 end
 
+--[[
+SHADOW'S CODE FOR INTERRUPTS AND KEYBIND TOGGLES
+FOR AUTO INTERRUPTS ENSURE TO PUT THIS CODE DIRECTLY UNDER: if Everyone.TargetIsValid() or Player:AffectingCombat() then
+  if addonTable.config.Interrupt then
+	  local ShouldReturn = Interrupt()
+		if ShouldReturn then
+			return ShouldReturn
+		end
+	end   
+]]--
+
+-- Define a function to call HR.CmdHandler arguments
+local function ToggleCDs()
+  HR.CmdHandler("cds")
+end
+local function ToggleAoE()
+  HR.CmdHandler("aoe")
+end
+local function ToggleHeroRotation()
+  HR.CmdHandler("toggle")
+end
+
 local function Init()
   S.FieryBrandDebuff:RegisterAuraTracking()
   S.SigilofFlameDebuff:RegisterAuraTracking()
+
+  local cdsButton = CreateFrame("Button", "ToggleCDsButton", UIParent, "SecureActionButtonTemplate")
+  cdsButton:SetScript("OnClick", ToggleCDs)
+  
+  local aoeButton = CreateFrame("Button", "ToggleAoEButton", UIParent, "SecureActionButtonTemplate")
+  aoeButton:SetScript("OnClick", ToggleAoE)
+
+  local toggleButton = CreateFrame("Button", "ToggleHeroRotationButton", UIParent, "SecureActionButtonTemplate")
+  toggleButton:SetScript("OnClick", ToggleHeroRotation)
+
+  -- Clear keybinds for the selected keys below
+  SetBinding("T")
+  SetBinding("Y")
+  SetBinding("U")
+
+
+  -- Register the functions with keybindings
+  -- You can change "T", "Y", and "U" to your desired key combinations
+  SetBindingClick("T", "ToggleCDsButton")
+  SetBindingClick("Y", "ToggleAoEButton")
+  SetBindingClick("U", "ToggleHeroRotationButton")
+
+  SaveBindings(GetCurrentBindingSet())
 
   HR.Print("Vengeance Demon Hunter rotation has been updated for patch 10.2.7.")
 end
