@@ -18,7 +18,7 @@ local settings = {
   Interrupt = true,
   Grip = true,
   Stun = true,
-  Leap = false,
+  --Leap = false,
 }
 addonTable:SetConfig(settings)
 
@@ -36,6 +36,7 @@ addonTable.spells = {
   { spell = "MACRO OptiAction2", name = "Anti-Magic Zone" },
   { spell = "MACRO OptiAction3", name = "AbominationLimb" },
   { spell = "MACRO OptiAction4", name = "DancingRuneWeapon" },
+  { spell = "MACRO OptiAction5", name = "Death Grip" },
   { spell = "SPELL Vampiric Blood", name = "Vampiric Blood" },
   { spell = "SPELL Tombstone", name = "Tombstone" },
   { spell = "SPELL Soul Reaper", name = "Soul Reaper" },
@@ -56,7 +57,6 @@ addonTable.spells = {
   -- INTERRUPTS
   { spell = "SPELL Mind Freeze", name = "Mind Freeze" },
   { spell = "SPELL Asphyxiate", name = "Asphyxiate" },
-  { spell = "MACRO OptiAction5", name = "DeathGrip" },
   --{ spell = "SPELL Death Grip", name = "Death Grip" },
   --{ spell = "SPELL Leap", name = "Leap" },
   -- RACIALS
@@ -140,12 +140,14 @@ local function Interrupt()
 			end
 		end
 
-    if S.Asphyxiate:IsCastable() and Target:IsSpellInRange(S.Asphyxiate) and addonTable.config.Stun and S.MindFreeze:CooldownRemains() > 0.5 then
-			if Cast(S.Asphyxiate) then
-				addonTable.cast("Asphyxiate")
-				return "asphyxiate 1"
-			end
-		end
+    if S.Asphyxiate:IsAvailable() then
+      if S.Asphyxiate:IsCastable() and Target:IsSpellInRange(S.Asphyxiate) and addonTable.config.Stun and S.MindFreeze:CooldownRemains() > 0.5 then
+	      if Cast(S.Asphyxiate) then
+		      addonTable.cast("Asphyxiate")
+				  return "asphyxiate 1"
+			  end
+		  end
+    end
 
 		if S.DeathGrip:IsCastable() and Target:IsSpellInRange(S.DeathGrip) and addonTable.config.Grip and (S.MindFreeze:CooldownRemains() > 0.5 or S.Asphyxiate:CooldownRemains() > 0.5) and (S.Asphyxiate:TimeSinceLastCast() > 2 or S.DeathGrip:TimeSinceLastCast() > 4) then
 			if Cast(S.DeathGrip) then
@@ -153,15 +155,9 @@ local function Interrupt()
 				return "death_grip 1"
 			end
 		end
-
-		if Pet:BuffUp(S.DarkTransformation) and S.PetLeap:IsCastable() and addonTable.config.Leap then
-			if Cast(S.PetLeap) then
-				addonTable.cast("Pet Leap")
-				return "pet_leap 1"
-			end
-		end
 	end
 end
+
 local function UnitsWithoutBP(enemies)
   local WithoutBPCount = 0
   for _, CycleUnit in pairs(enemies) do
@@ -482,10 +478,6 @@ addonTable.resetPixels()
     if Settings.Commons.Enabled.Trinkets or Settings.Commons.Enabled.Items then
       local ShouldReturn = Trinkets(); if ShouldReturn then return ShouldReturn; end
     end
-    -- raise_dead
-    if CDsON() and S.RaiseDead:IsCastable() then
-      if Cast(S.RaiseDead, nil, Settings.CommonsDS.DisplayStyle.RaiseDead) then addonTable.cast("Raise Dead") return "raise_dead main 4"; end
-    end
     if Settings.Commons.UseAMSAMZOffensively and CDsON() then
       -- antimagic_shell,if=runic_power.deficit>40&death_knight.first_ams_cast<time
       -- In simc, the default of this setting is 20s.
@@ -547,6 +539,11 @@ addonTable.resetPixels()
     if CDsON() and S.AbominationLimb:IsCastable() then
       if Cast(S.AbominationLimb, nil, Settings.CommonsDS.DisplayStyle.Signature, not Target:IsInRange(20)) then addonTable.cast("Abomination Limb") return "abomination_limb main 26"; end
     end
+    -- raise_dead
+    if CDsON() and S.RaiseDead:IsCastable() then
+      if Cast(S.RaiseDead, nil, Settings.CommonsDS.DisplayStyle.RaiseDead) then addonTable.cast("Raise Dead") return "raise_dead main 4"; end
+    end
+
     -- run_action_list,name=drw_up,if=buff.dancing_rune_weapon.up
     if (Player:BuffUp(S.DancingRuneWeaponBuff)) then
       local ShouldReturn = DRWUp(); if ShouldReturn then return ShouldReturn; end
@@ -559,8 +556,52 @@ addonTable.resetPixels()
   end
 end
 
+--[[
+SHADOW'S CODE FOR INTERRUPTS AND KEYBIND TOGGLES
+FOR AUTO INTERRUPTS ENSURE TO PUT THIS CODE DIRECTLY UNDER: if Everyone.TargetIsValid() or Player:AffectingCombat() then
+  if addonTable.config.Interrupt then
+	  local ShouldReturn = Interrupt()
+		if ShouldReturn then
+			return ShouldReturn
+		end
+	end   
+]]--
+
+-- Define a function to call HR.CmdHandler arguments
+local function ToggleCDs()
+  HR.CmdHandler("cds")
+end
+local function ToggleAoE()
+  HR.CmdHandler("aoe")
+end
+local function ToggleHeroRotation()
+  HR.CmdHandler("toggle")
+end
+
 local function Init()
   S.MarkofFyralathDebuff:RegisterAuraTracking()
+  local cdsButton = CreateFrame("Button", "ToggleCDsButton", UIParent, "SecureActionButtonTemplate")
+  cdsButton:SetScript("OnClick", ToggleCDs)
+  
+  local aoeButton = CreateFrame("Button", "ToggleAoEButton", UIParent, "SecureActionButtonTemplate")
+  aoeButton:SetScript("OnClick", ToggleAoE)
+
+  local toggleButton = CreateFrame("Button", "ToggleHeroRotationButton", UIParent, "SecureActionButtonTemplate")
+  toggleButton:SetScript("OnClick", ToggleHeroRotation)
+
+  -- Clear keybinds for the selected keys below
+  SetBinding("T")
+  SetBinding("Y")
+  SetBinding("U")
+
+
+  -- Register the functions with keybindings
+  -- You can change "T", "Y", and "U" to your desired key combinations
+  SetBindingClick("T", "ToggleCDsButton")
+  SetBindingClick("Y", "ToggleAoEButton")
+  SetBindingClick("U", "ToggleHeroRotationButton")
+
+  SaveBindings(GetCurrentBindingSet())
 
   HR.Print("Blood Death Knight rotation has been updated for patch 10.2.7.")
 end

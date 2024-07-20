@@ -18,7 +18,7 @@ local settings = {
   Interrupt = true,
   Grip = true,
   Stun = true,
-  Leap = false,
+  --Leap = false,
 }
 addonTable:SetConfig(settings)
 
@@ -38,6 +38,7 @@ addonTable.spells = {
   { spell = "MACRO OptiAction3", name = "PillarofFrost" },
   { spell = "MACRO OptiAction4", name = "BreathofSindragosa" },
   { spell = "MACRO OptiAction5", name = "AbominationLimb" },
+  { spell = "MACRO OptiAction6", name = "Death Grip" },
   { spell = "SPELL Empower Rune Weapon", name = "Empower Rune Weapon" },
   { spell = "SPELL Anti-Magic Shell", name = "Anti-Magic Shell" },
   { spell = "SPELL Soul Reaper", name = "Soul Reaper" },
@@ -191,38 +192,6 @@ end
 -- HowlingBlast
 local function EvaluateCycleHowlingBlast(TargetUnit)
   return (TargetUnit:DebuffDown(S.FrostFeverDebuff))
-end
-
-local function Interrupt()
-	if Target:IsInterruptible() then
-		if S.MindFreeze:IsCastable() and Target:IsSpellInRange(S.MindFreeze) and addonTable.config.Interrupt then
-			if Cast(S.MindFreeze) then
-				addonTable.cast("Mind Freeze")
-				return "mind_freeze 1"
-			end
-		end
-
-    if S.Asphyxiate:IsCastable() and Target:IsSpellInRange(S.Asphyxiate) and addonTable.config.Stun and S.MindFreeze:CooldownRemains() > 0.5 then
-			if Cast(S.Asphyxiate) then
-				addonTable.cast("Asphyxiate")
-				return "asphyxiate 1"
-			end
-		end
-
-		if S.DeathGrip:IsCastable() and Target:IsSpellInRange(S.DeathGrip) and addonTable.config.Grip and (S.MindFreeze:CooldownRemains() > 0.5 or S.Asphyxiate:CooldownRemains() > 0.5) and (S.Asphyxiate:TimeSinceLastCast() > 2 or S.DeathGrip:TimeSinceLastCast() > 4) then
-			if Cast(S.DeathGrip) then
-				addonTable.cast("Death Grip")
-				return "death_grip 1"
-			end
-		end
-
-		if Pet:BuffUp(S.DarkTransformation) and S.PetLeap:IsCastable() and addonTable.config.Leap then
-			if Cast(S.PetLeap) then
-				addonTable.cast("Pet Leap")
-				return "pet_leap 1"
-			end
-		end
-	end
 end
 
 local function Precombat()
@@ -857,9 +826,87 @@ addonTable.resetPixels()
   end
 end
 
+--[[
+SHADOW'S CODE FOR INTERRUPTS AND KEYBIND TOGGLES
+FOR AUTO INTERRUPTS ENSURE TO PUT THIS CODE DIRECTLY UNDER: if Everyone.TargetIsValid() or Player:AffectingCombat() then
+  if addonTable.config.Interrupt then
+	  local ShouldReturn = Interrupt()
+		if ShouldReturn then
+			return ShouldReturn
+		end
+	end   
+]]--
+local settings = {
+  Interrupt = true,
+  Grip = true,
+  Stun = true,
+  --Leap = false,
+}
+addonTable:SetConfig(settings)
+
+local function Interrupt()
+	if Target:IsInterruptible() then
+		if S.MindFreeze:IsCastable() and Target:IsSpellInRange(S.MindFreeze) and addonTable.config.Interrupt then
+			if Cast(S.MindFreeze) then
+				addonTable.cast("Mind Freeze")
+				return "mind_freeze 1"
+			end
+		end
+
+    if S.Asphyxiate:IsCastable() and Target:IsSpellInRange(S.Asphyxiate) and addonTable.config.Stun and S.MindFreeze:CooldownRemains() > 0.5 then
+		  if Cast(S.Asphyxiate) then
+			  addonTable.cast("Asphyxiate")
+			  return "asphyxiate 1"
+			end
+		end
+  end
+
+		if S.DeathGrip:IsCastable() and Target:IsSpellInRange(S.DeathGrip) and addonTable.config.Grip and (S.MindFreeze:CooldownRemains() > 0.5 or S.Asphyxiate:CooldownRemains() > 0.5) and (S.Asphyxiate:TimeSinceLastCast() > 2 or S.DeathGrip:TimeSinceLastCast() > 4) then
+			if Cast(S.DeathGrip) then
+				addonTable.cast("Death Grip")
+				return "death_grip 1"
+			end
+		end
+	end
+end
+
+-- Define a function to call HR.CmdHandler arguments
+local function ToggleCDs()
+  HR.CmdHandler("cds")
+end
+local function ToggleAoE()
+  HR.CmdHandler("aoe")
+end
+local function ToggleHeroRotation()
+  HR.CmdHandler("toggle")
+end
+
 local function Init()
   S.MarkofFyralathDebuff:RegisterAuraTracking()
+  
+  local cdsButton = CreateFrame("Button", "ToggleCDsButton", UIParent, "SecureActionButtonTemplate")
+  cdsButton:SetScript("OnClick", ToggleCDs)
+  
+  local aoeButton = CreateFrame("Button", "ToggleAoEButton", UIParent, "SecureActionButtonTemplate")
+  aoeButton:SetScript("OnClick", ToggleAoE)
 
+  local toggleButton = CreateFrame("Button", "ToggleHeroRotationButton", UIParent, "SecureActionButtonTemplate")
+  toggleButton:SetScript("OnClick", ToggleHeroRotation)
+
+  -- Clear keybinds for the selected keys below
+  SetBinding("T")
+  SetBinding("Y")
+  SetBinding("U")
+
+
+  -- Register the functions with keybindings
+  -- You can change "T", "Y", and "U" to your desired key combinations
+  SetBindingClick("T", "ToggleCDsButton")
+  SetBindingClick("Y", "ToggleAoEButton")
+  SetBindingClick("U", "ToggleHeroRotationButton")
+
+  SaveBindings(GetCurrentBindingSet())
+  
   HR.Print("Frost Death Knight rotation has been updated for patch 10.2.7.")
 end
 
