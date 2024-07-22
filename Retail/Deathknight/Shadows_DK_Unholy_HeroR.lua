@@ -19,7 +19,6 @@ local settings = {
   Interrupt = true,
   Grip = true,
   Stun = true,
-  --Leap = false,
 }
 addonTable:SetConfig(settings)
 
